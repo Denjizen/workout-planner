@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Workout Planner</title>
 
-  <!-- Icons for app -->
   <link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
   <link rel="manifest" href="manifest.json">
-
   <meta name="theme-color" content="#121212" />
 
   <style>
@@ -52,7 +50,8 @@
       align-items: center;
       gap: 0.4rem;
     }
-    button[data-del], button[data-comp], button[data-pb] {
+    /* Make all small buttons 32x32 */
+    button[data-del], button[data-comp], button[data-pb], button[data-del-pb] {
       width: 32px;
       height: 32px;
       padding: 0;
@@ -83,8 +82,8 @@
       font-weight: bold;
       font-size: 0.9rem;
       padding: 0;
-      width: auto;
-      min-width: 40px;
+      width: 32px;
+      height: 32px;
       justify-content: center;
     }
     .btn-pb:hover {
@@ -134,6 +133,13 @@
     #history-list li {
       justify-content: space-between;
     }
+    /* Personal best entry buttons container */
+    #history-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
     @media (max-width: 500px) {
       .exercise-buttons {
         flex-direction: column;
@@ -144,8 +150,6 @@
         gap: 0.5rem;
       }
     }
-
-    /* Install button styling */
     #install-btn {
       display: block;
       margin: 1rem auto 2rem;
@@ -172,16 +176,15 @@
 </head>
 <body>
 
-  <h1>🏋️ Workout Planner</h1>
-
-  <!-- Install button -->
   <button id="install-btn" style="display:none" title="Install Workout Planner">⬇️ Install App</button>
+
+  <h1>🏋️ Workout Planner</h1>
 
   <div id="main-screen">
     <h2>Your Workouts</h2>
     <ul id="workout-list"></ul>
     <input type="text" id="new-workout-name" placeholder="New workout name" />
-    <button id="add-workout-btn">➕ Add Workout</button>
+    <button id="add-workout-btn">Add Workout</button>
   </div>
 
   <div id="workout-screen" style="display:none;">
@@ -192,29 +195,18 @@
 
     <input type="text" id="new-exercise-name" placeholder="Exercise name" />
     <input type="number" id="new-exercise-sets" placeholder="Sets" min="1" max="20" />
-    <select id="new-exercise-reps">
-      <option value="">Reps</option>
-    </select>
-    <button id="add-exercise-btn">➕ Add Exercise</button>
+    <input type="number" id="new-exercise-reps" placeholder="Reps" min="1" max="100" />
+    <input type="number" id="new-exercise-weight" placeholder="Weight (KG)" min="0" max="1000" />
+    <button id="add-exercise-btn">Add Exercise</button>
 
     <h3>Personal Bests</h3>
     <ul id="history-list"></ul>
   </div>
 
   <script>
-    // Populate reps dropdown 1–50
-    const repsDropdown = document.getElementById('new-exercise-reps');
-    for (let i = 1; i <= 50; i++) {
-      const option = document.createElement('option');
-      option.value = i;
-      option.textContent = `${i} reps`;
-      repsDropdown.appendChild(option);
-    }
-
     let workouts = JSON.parse(localStorage.getItem('workouts')) || { workouts: [] };
     let currentWorkoutIndex = null;
 
-    // PWA install prompt event
     let deferredPrompt;
     const installBtn = document.getElementById('install-btn');
 
@@ -229,11 +221,6 @@
       if (deferredPrompt) {
         deferredPrompt.prompt();
         const choiceResult = await deferredPrompt.userChoice;
-        if (choiceResult.outcome === 'accepted') {
-          console.log('User accepted the install prompt');
-        } else {
-          console.log('User dismissed the install prompt');
-        }
         deferredPrompt = null;
       }
     });
@@ -249,7 +236,7 @@
         const li = document.createElement('li');
         li.innerHTML = `
           <div class="exercise-info">
-            <span class="link" data-index="${i}">🏋️ ${w.name}</span>
+            <span class="link" data-index="${i}"> ${w.name}</span>
           </div>
           <button class="btn-danger" data-del="${i}" title="Delete Workout">🗑</button>`;
         ul.appendChild(li);
@@ -295,104 +282,117 @@
       document.getElementById('main-screen').style.display = 'none';
       document.getElementById('workout-screen').style.display = 'block';
       renderWorkoutDetails();
+      renderHistory();
     }
 
     function renderWorkoutDetails() {
       const workout = workouts.workouts[currentWorkoutIndex];
       document.getElementById('workout-title').textContent = workout.name;
-
-      const exList = document.getElementById('exercise-list');
-      exList.innerHTML = '';
+      const list = document.getElementById('exercise-list');
+      list.innerHTML = '';
       workout.exercises.forEach((ex, i) => {
         const li = document.createElement('li');
+
+        const completedClass = ex.completed ? 'completed' : '';
         li.innerHTML = `
-          <div class="exercise-info ${ex.completed ? 'completed' : ''}">
-            🏋️ ${ex.name} — ${ex.sets} sets × ${ex.reps} reps
+          <div class="exercise-info ${completedClass}">
+            <span>${ex.name} — ${ex.sets} sets × ${ex.reps} reps @ ${ex.weight}kg</span>
           </div>
           <div class="exercise-buttons">
-            <button class="btn-green" data-comp="${i}" title="${ex.completed ? 'Mark Incomplete' : 'Mark Complete'}">✅</button>
-            <button class="btn-pb" data-pb="${i}" title="Save Personal Best">💪 PB</button>
-            <button class="btn-danger" data-del="${i}" title="Delete Exercise">🗑</button>
-          </div>`;
-        exList.appendChild(li);
+            <button data-comp="${i}" title="Mark Completed" class="btn-green">${ex.completed ? '✔' : '○'}</button>
+            <button data-pb="${i}" title="Save Personal Best" class="btn-pb">PB</button>
+            <button data-del="${i}" title="Delete Exercise" class="btn-danger">🗑</button>
+          </div>
+        `;
+        list.appendChild(li);
       });
 
-      // Delete exercise
-      exList.querySelectorAll('button[data-del]').forEach(btn => {
+      // Exercise buttons event listeners
+      list.querySelectorAll('button[data-comp]').forEach(btn => {
         btn.onclick = e => {
-          const delIndex = Number(e.target.dataset.del);
-          workout.exercises.splice(delIndex, 1);
+          const idx = Number(e.target.dataset.comp);
+          workout.exercises[idx].completed = !workout.exercises[idx].completed;
           saveWorkouts();
           renderWorkoutDetails();
         };
       });
-
-      // Toggle complete exercise
-      exList.querySelectorAll('button[data-comp]').forEach(btn => {
+      list.querySelectorAll('button[data-pb]').forEach(btn => {
         btn.onclick = e => {
-          const compIndex = Number(e.target.dataset.comp);
-          workout.exercises[compIndex].completed = !workout.exercises[compIndex].completed;
-          saveWorkouts();
-          renderWorkoutDetails();
-        };
-      });
-
-      // Save PB
-      exList.querySelectorAll('button[data-pb]').forEach(btn => {
-        btn.onclick = e => {
-          const pbIndex = Number(e.target.dataset.pb);
-          const ex = workout.exercises[pbIndex];
-          const date = new Date().toLocaleDateString();
-          const record = `${ex.sets} sets × ${ex.reps} reps`;
-          workout.history.push({ date, exercise: ex.name, record });
+          const idx = Number(e.target.dataset.pb);
+          const ex = workout.exercises[idx];
+          // Save to personal bests
+          workout.history.push({
+            name: ex.name,
+            sets: ex.sets,
+            reps: ex.reps,
+            weight: ex.weight
+          });
           saveWorkouts();
           renderHistory();
+          alert(`Personal Best saved for ${ex.name}`);
         };
       });
-
-      renderHistory();
+      list.querySelectorAll('button[data-del]').forEach(btn => {
+        btn.onclick = e => {
+          const idx = Number(e.target.dataset.del);
+          if (confirm(`Delete exercise "${workout.exercises[idx].name}"?`)) {
+            workout.exercises.splice(idx, 1);
+            saveWorkouts();
+            renderWorkoutDetails();
+            renderHistory();
+          }
+        };
+      });
     }
 
     document.getElementById('add-exercise-btn').onclick = () => {
       const name = document.getElementById('new-exercise-name').value.trim();
-      const sets = parseInt(document.getElementById('new-exercise-sets').value, 10);
-      const reps = parseInt(document.getElementById('new-exercise-reps').value, 10);
-
+      const sets = Number(document.getElementById('new-exercise-sets').value);
+      const reps = Number(document.getElementById('new-exercise-reps').value);
+      const weight = Number(document.getElementById('new-exercise-weight').value);
       if (!name) return alert('Enter exercise name');
-      if (!sets || sets < 1) return alert('Enter valid number of sets');
-      if (!reps || reps < 1) return alert('Select reps');
+      if (!sets || sets <= 0) return alert('Enter valid number of sets');
+      if (!reps || reps <= 0) return alert('Enter valid number of reps');
+      if (weight < 0) return alert('Enter valid weight');
 
       const workout = workouts.workouts[currentWorkoutIndex];
-      workout.exercises.push({ name, sets, reps, completed: false });
+      workout.exercises.push({ name, sets, reps, weight, completed: false });
       saveWorkouts();
+      renderWorkoutDetails();
+
+      // Clear inputs
       document.getElementById('new-exercise-name').value = '';
       document.getElementById('new-exercise-sets').value = '';
       document.getElementById('new-exercise-reps').value = '';
-      renderWorkoutDetails();
+      document.getElementById('new-exercise-weight').value = '';
     };
 
     function renderHistory() {
       const historyList = document.getElementById('history-list');
       historyList.innerHTML = '';
       const workout = workouts.workouts[currentWorkoutIndex];
-      if (!workout.history.length) {
+      if (!workout.history || workout.history.length === 0) {
         historyList.innerHTML = '<li>No personal bests saved yet.</li>';
         return;
       }
-      workout.history.slice().reverse().forEach((h, i) => {
+      workout.history.forEach((entry, i) => {
         const li = document.createElement('li');
         li.innerHTML = `
-          <div>${h.date}: <strong>${h.exercise}</strong> — ${h.record}</div>
-          <button class="btn-danger" data-del="${workout.history.length - 1 - i}" title="Delete PB">🗑</button>
+          <span>${entry.name} — ${entry.sets} sets × ${entry.reps} reps @ ${entry.weight}kg</span>
+          <button data-del-pb="${i}" title="Delete Personal Best" class="btn-danger">🗑</button>
         `;
         historyList.appendChild(li);
       });
-      historyList.querySelectorAll('button[data-del]').forEach(btn => {
+
+      // Delete personal best buttons event listeners
+      historyList.querySelectorAll('button[data-del-pb]').forEach(btn => {
         btn.onclick = e => {
-          const delIndex = Number(e.target.dataset.del);
-          workout.history.splice(delIndex, 1);
-          saveWorkouts();
-          renderHistory();
+          const idx = Number(e.target.dataset.delPb);
+          if (confirm('Delete this personal best?')) {
+            workout.history.splice(idx, 1);
+            saveWorkouts();
+            renderHistory();
+          }
         };
       });
     }
@@ -400,6 +400,9 @@
     // Initial render
     renderWorkoutList();
   </script>
+
+</body>
+</html>
 
 </body>
 </html>
