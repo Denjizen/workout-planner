@@ -2,11 +2,11 @@ const CACHE_NAME = 'workout-planner-cache-v1';
 const urlsToCache = [
   '/',
   '/index.html',
+  '/favicon-32x32.png',
+  '/favicon-16x16.png',
   '/manifest.json',
-  'icon-192.png',
-  'icon-512.png',
-  'favicon-32x32.png',
-  'favicon-16x16.png'
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
 // Install cache
@@ -36,3 +36,4 @@ self.addEventListener('fetch', event => {
       .then(response => response || fetch(event.request))
   );
 });
+
